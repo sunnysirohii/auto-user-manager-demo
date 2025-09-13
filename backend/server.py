@@ -230,8 +230,20 @@ async def execute_automation_job(job_id: str, job_type: str, parameters: dict):
     )
     
     try:
-        # Get the base URL from environment or use default
-        base_url = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:3000')
+        # Get the frontend URL from environment
+        frontend_env_path = Path(__file__).parent.parent / 'frontend' / '.env'
+        frontend_url = 'http://localhost:3000'  # default
+        
+        if frontend_env_path.exists():
+            with open(frontend_env_path, 'r') as f:
+                for line in f:
+                    if line.startswith('REACT_APP_BACKEND_URL='):
+                        # Extract the base URL (remove /api suffix if present)
+                        backend_url = line.split('=')[1].strip()
+                        frontend_url = backend_url.replace('/api', '')
+                        break
+        
+        base_url = frontend_url
         
         if job_type == "scrape_users":
             # Authenticate first
