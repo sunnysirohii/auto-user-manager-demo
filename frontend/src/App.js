@@ -254,23 +254,23 @@ const MockSaaSPortal = () => {
               onChange={(e) => setFilters({...filters, search: e.target.value})}
               className="w-64"
             />
-            <Select value={filters.role} onValueChange={(value) => setFilters({...filters, role: value})}>
+            <Select value={filters.role || "all"} onValueChange={(value) => setFilters({...filters, role: value === "all" ? "" : value})}>
               <SelectTrigger className="w-32">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Roles</SelectItem>
+                <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="user">User</SelectItem>
                 <SelectItem value="viewer">Viewer</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filters.status} onValueChange={(value) => setFilters({...filters, status: value})}>
+            <Select value={filters.status || "all"} onValueChange={(value) => setFilters({...filters, status: value === "all" ? "" : value})}>
               <SelectTrigger className="w-32">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
