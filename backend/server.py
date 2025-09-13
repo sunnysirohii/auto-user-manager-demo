@@ -17,6 +17,7 @@ import jwt
 import hashlib
 import asyncio
 from passlib.context import CryptContext
+from automation_engine import AutomationEngine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
