@@ -216,9 +216,8 @@ async def create_automation_job(job_type: str, parameters: dict = {}):
     job = AutomationJob(job_type=job_type, parameters=parameters)
     await db.automation_jobs.insert_one(job.dict())
     
-    # In a real system, this would trigger the automation engine
-    # For demo, we'll simulate job execution
-    asyncio.create_task(simulate_job_execution(job.id))
+    # Trigger real automation engine
+    asyncio.create_task(execute_automation_job(job.id, job_type, parameters))
     
     return job
 
