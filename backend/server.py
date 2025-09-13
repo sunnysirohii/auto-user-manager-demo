@@ -221,55 +221,113 @@ async def create_automation_job(job_type: str, parameters: dict = {}):
     
     return job
 
-async def simulate_job_execution(job_id: str):
-    """Simulate automation job execution"""
-    await asyncio.sleep(2)  # Simulate processing time
-    
-    job = await db.automation_jobs.find_one({"id": job_id})
-    if not job:
-        return
-    
-    # Simulate different job types
-    if job["job_type"] == "scrape_users":
-        # Simulate scraping results
-        users = await db.demo_users.find().limit(5).to_list(5)
-        results = {
-            "scraped_users": len(users),
-            "users_data": [{"name": u["name"], "email": u["email"], "role": u["role"]} for u in users]
-        }
-        logs = [
-            "Started browser automation",
-            "Navigated to login page", 
-            "Entered credentials",
-            "Solved MFA challenge",
-            "Navigated to users page",
-            f"Scraped {len(users)} users successfully"
-        ]
-    elif job["job_type"] == "provision_user":
-        results = {"success": True, "user_created": job["parameters"]}
-        logs = [
-            "Started provisioning workflow",
-            "Navigated to add user page",
-            "Filled user form",
-            "Submitted form",
-            "Verified user creation"
-        ]
-    else:
-        results = {"success": True}
-        logs = ["Job completed"]
-    
-    # Update job status
+async def execute_automation_job(job_id: str, job_type: str, parameters: dict):
+    """Execute real automation job using Playwright"""
+    # Update job status to running
     await db.automation_jobs.update_one(
         {"id": job_id}, 
-        {
-            "$set": {
-                "status": "completed",
-                "results": results,
-                "logs": logs,
-                "completed_at": datetime.utcnow()
-            }
-        }
+        {"$set": {"status": "running"}}
     )
+    
+    try:
+        # Get the base URL from environment or use default
+        base_url = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:3000')
+        
+        if job_type == "scrape_users":
+            # Authenticate first
+            auth_result = await automation_engine.authenticate(base_url, {
+                'username': 'admin',
+                'password': 'password'
+            })
+            
+            if auth_result['success']:
+                # Scrape users
+                scrape_result = await automation_engine.scrape_users(base_url, max_pages=2)
+                results = {
+                    "success": scrape_result['success'],
+                    "scraped_users": scrape_result.get('total_scraped', 0),
+                    "users_data": scrape_result.get('users', [])[:10]  # Limit for storage
+                }
+                logs = auth_result['logs'] + scrape_result['logs']
+            else:
+                results = {"success": False, "error": "Authentication failed"}
+                logs = auth_result['logs']
+                
+        elif job_type == "provision_user":
+            # Authenticate first
+            auth_result = await automation_engine.authenticate(base_url, {
+                'username': 'admin',
+                'password': 'password'
+            })
+            
+            if auth_result['success']:
+                # Provision user
+                user_data = parameters if parameters else {
+                    'name': 'Automation Test User',
+                    'email': 'auto.test@example.com',
+                    'role': 'user'
+                }
+                provision_result = await automation_engine.provision_user(base_url, user_data)
+                results = {
+                    "success": provision_result['success'],
+                    "user_created": user_data,
+                    "verified": provision_result.get('verified', False)
+                }
+                logs = auth_result['logs'] + provision_result['logs']
+            else:
+                results = {"success": False, "error": "Authentication failed"}
+                logs = auth_result['logs']
+                
+        elif job_type == "deprovision_user":
+            # Authenticate first
+            auth_result = await automation_engine.authenticate(base_url, {
+                'username': 'admin',
+                'password': 'password'
+            })
+            
+            if auth_result['success']:
+                # Deprovision user
+                user_id = parameters.get('user_email', 'auto.test@example.com')
+                deprovision_result = await automation_engine.deprovision_user(base_url, user_id)
+                results = {
+                    "success": deprovision_result['success'],
+                    "user_removed": user_id,
+                    "verified": deprovision_result.get('verified', False)
+                }
+                logs = auth_result['logs'] + deprovision_result['logs']
+            else:
+                results = {"success": False, "error": "Authentication failed"}
+                logs = auth_result['logs']
+        else:
+            results = {"success": False, "error": f"Unknown job type: {job_type}"}
+            logs = [f"Unknown job type: {job_type}"]
+        
+        # Update job with results
+        await db.automation_jobs.update_one(
+            {"id": job_id}, 
+            {
+                "$set": {
+                    "status": "completed",
+                    "results": results,
+                    "logs": logs,
+                    "completed_at": datetime.utcnow()
+                }
+            }
+        )
+        
+    except Exception as e:
+        # Update job with error
+        await db.automation_jobs.update_one(
+            {"id": job_id}, 
+            {
+                "$set": {
+                    "status": "failed",
+                    "results": {"success": False, "error": str(e)},
+                    "logs": [f"Job failed with error: {str(e)}"],
+                    "completed_at": datetime.utcnow()
+                }
+            }
+        )
 
 @api_router.get("/automation/jobs")
 async def get_automation_jobs():
