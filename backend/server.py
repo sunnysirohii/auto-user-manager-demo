@@ -32,6 +32,9 @@ security = HTTPBearer()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = "ai-automation-demo-secret-key-not-for-production"
 
+# Automation Engine
+automation_engine = AutomationEngine()
+
 # Create the main app
 app = FastAPI(title="AI-Driven Web Automation Demo")
 api_router = APIRouter(prefix="/api")
